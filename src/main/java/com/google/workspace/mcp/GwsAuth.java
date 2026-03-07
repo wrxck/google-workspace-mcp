@@ -4,7 +4,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 /**
  * Handles authentication via gws CLI and registration with Claude Code.
@@ -72,6 +75,10 @@ public final class GwsAuth {
         System.err.println();
         registerWithClaude(claudeBinary);
 
+        // 5. Install Claude Code skill
+        System.err.println();
+        installSkill();
+
         System.err.println();
         System.err.println("Done! Restart Claude Code to use the Google Workspace tools.");
     }
@@ -124,18 +131,18 @@ public final class GwsAuth {
 
     /**
      * Find Claude Code binary on PATH.
+     * Checks direct binary paths first, then falls back to npx.
      */
     static String findClaudeBinary() {
-        String[] candidates = {
-                "claude",
-                System.getProperty("user.home") + "/.local/bin/claude",
-                "/usr/local/bin/claude",
-                "/usr/bin/claude"
-        };
-
-        for (String candidate : candidates) {
+        for (String candidate : getClaudeBinaryCandidates()) {
             try {
-                var process = new ProcessBuilder(candidate, "--version")
+                String[] cmd = candidate.contains(" ")
+                        ? candidate.split(" ")
+                        : new String[]{candidate};
+                String[] versionCmd = new String[cmd.length + 1];
+                System.arraycopy(cmd, 0, versionCmd, 0, cmd.length);
+                versionCmd[cmd.length] = "--version";
+                var process = new ProcessBuilder(versionCmd)
                         .redirectErrorStream(true)
                         .start();
                 process.getInputStream().readAllBytes();
@@ -147,6 +154,20 @@ public final class GwsAuth {
             }
         }
         return null;
+    }
+
+    /**
+     * Returns the list of Claude binary candidates to try.
+     */
+    static String[] getClaudeBinaryCandidates() {
+        return new String[]{
+                "claude",
+                System.getProperty("user.home") + "/.claude/local/claude",
+                System.getProperty("user.home") + "/.local/bin/claude",
+                "/usr/local/bin/claude",
+                "/usr/bin/claude",
+                "npx @anthropic-ai/claude-code"
+        };
     }
 
     /**
@@ -175,6 +196,27 @@ public final class GwsAuth {
             return Path.of(jarPath).toAbsolutePath().toString();
         }
         return Path.of("target", "google-workspace-mcp-1.0.0.jar").toAbsolutePath().toString();
+    }
+
+    /**
+     * Install the Claude Code skill from the bundled resource.
+     */
+    static void installSkill() {
+        Path skillDir = Path.of(System.getProperty("user.home"), ".claude", "skills", "gws");
+        Path skillFile = skillDir.resolve("SKILL.md");
+
+        try (InputStream in = GwsAuth.class.getResourceAsStream("/skill/SKILL.md")) {
+            if (in == null) {
+                System.err.println("[skip] Skill file not found in JAR");
+                return;
+            }
+            Files.createDirectories(skillDir);
+            Files.copy(in, skillFile, StandardCopyOption.REPLACE_EXISTING);
+            System.err.println("[done] Installed Claude Code skill to " + skillFile);
+        } catch (IOException e) {
+            System.err.println("[warn] Could not install skill: " + e.getMessage());
+            System.err.println("You can manually copy skill/SKILL.md to " + skillFile);
+        }
     }
 
     private static void registerWithClaude(String claudeBinary)
