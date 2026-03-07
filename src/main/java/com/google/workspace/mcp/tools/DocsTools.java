@@ -139,10 +139,10 @@ public final class DocsTools {
 
     static String requireString(Map<String, Object> args, String key) {
         Object value = args.get(key);
-        if (value == null || value.toString().isBlank()) {
-            throw new IllegalArgumentException("Missing required argument: " + key);
+        if (value instanceof String s && !s.isBlank()) {
+            return s;
         }
-        return value.toString();
+        throw new IllegalArgumentException("Missing required argument: " + key);
     }
 
     static int parsePageSize(Map<String, Object> args, int defaultValue) {

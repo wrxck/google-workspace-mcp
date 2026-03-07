@@ -178,8 +178,9 @@ public class GmailTools {
                         String subject = requireString(args, "subject");
                         String body = requireString(args, "body");
 
-                        // Build RFC 2822 message
-                        String rfc2822 = "To: " + to + "\r\nSubject: " + subject
+                        // Build RFC 2822 message (strip CRLF from headers to prevent injection)
+                        String rfc2822 = "To: " + sanitizeHeader(to)
+                                + "\r\nSubject: " + sanitizeHeader(subject)
                                 + "\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" + body;
                         String encoded = Base64.getUrlEncoder().withoutPadding()
                                 .encodeToString(rfc2822.getBytes(StandardCharsets.UTF_8));
@@ -206,6 +207,13 @@ public class GmailTools {
             return s;
         }
         throw new IllegalArgumentException("'" + key + "' is required");
+    }
+
+    /**
+     * Strip CR and LF characters from email header values to prevent header injection.
+     */
+    static String sanitizeHeader(String value) {
+        return value.replace("\r", "").replace("\n", "");
     }
 
     static int parsePageSize(Object raw) {

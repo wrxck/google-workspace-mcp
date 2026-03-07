@@ -355,5 +355,19 @@ class ChatToolsTest {
         void doesNotDoublePrefix() {
             assertEquals("spaces/ABC", ChatTools.ensureSpacesPrefix("spaces/ABC"));
         }
+
+        @Test
+        void handlesUppercaseSpacesPrefix() {
+            // "SPACES/" is not the same as "spaces/" — should still add prefix
+            String result = ChatTools.ensureSpacesPrefix("SPACES/ABC");
+            assertEquals("spaces/SPACES/ABC", result,
+                    "Uppercase SPACES/ should not be treated as valid prefix");
+        }
+
+        @Test
+        void handlesEmptyStringGracefully() {
+            String result = ChatTools.ensureSpacesPrefix("");
+            assertEquals("spaces/", result);
+        }
     }
 }

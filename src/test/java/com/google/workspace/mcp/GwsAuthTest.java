@@ -107,6 +107,49 @@ class GwsAuthTest {
         }
     }
 
+    // ── getClaudeBinaryCandidates ──────────────────────────────────
+
+    @Nested
+    class GetClaudeBinaryCandidatesTests {
+
+        @Test
+        void returnsNonEmptyArray() {
+            String[] candidates = GwsAuth.getClaudeBinaryCandidates();
+            assertTrue(candidates.length > 0, "Should have at least one candidate");
+        }
+
+        @Test
+        void allCandidatesAreNonBlank() {
+            for (String candidate : GwsAuth.getClaudeBinaryCandidates()) {
+                assertFalse(candidate.isBlank(), "No candidate should be blank");
+            }
+        }
+
+        @Test
+        void npxCandidateIsSplittable() {
+            // Verify the npx candidate can be split into valid ProcessBuilder args
+            String npxCandidate = null;
+            for (String c : GwsAuth.getClaudeBinaryCandidates()) {
+                if (c.contains("npx")) {
+                    npxCandidate = c;
+                    break;
+                }
+            }
+            assertNotNull(npxCandidate, "Should have an npx candidate");
+            String[] parts = npxCandidate.split(" ");
+            assertEquals(2, parts.length, "npx candidate should split into exactly 2 parts");
+            assertEquals("npx", parts[0]);
+            assertTrue(parts[1].contains("claude"), "Second part should reference claude");
+        }
+
+        @Test
+        void candidatesEndWithNpxFallback() {
+            String[] candidates = GwsAuth.getClaudeBinaryCandidates();
+            String last = candidates[candidates.length - 1];
+            assertTrue(last.contains("npx"), "Last candidate should be npx fallback");
+        }
+    }
+
     // ── installSkill ───────────────────────────────────────────────
 
     @Nested
@@ -129,6 +172,33 @@ class GwsAuthTest {
                         "Skill should reference Drive tools");
                 assertTrue(content.contains("gmail_messages_send"),
                         "Skill should reference Gmail tools");
+            }
+        }
+
+        @Test
+        void skillResourceStartsWithFrontmatter() throws Exception {
+            try (var in = GwsAuth.class.getResourceAsStream("/skill/SKILL.md")) {
+                assertNotNull(in);
+                String content = new String(in.readAllBytes());
+                assertTrue(content.startsWith("---"),
+                        "Skill should start with YAML frontmatter");
+                assertTrue(content.contains("name: gws"),
+                        "Skill should have name: gws in frontmatter");
+            }
+        }
+
+        @Test
+        void skillResourceCoversAllToolGroups() throws Exception {
+            try (var in = GwsAuth.class.getResourceAsStream("/skill/SKILL.md")) {
+                assertNotNull(in);
+                String content = new String(in.readAllBytes());
+                assertTrue(content.contains("### Drive"), "Should cover Drive tools");
+                assertTrue(content.contains("### Calendar"), "Should cover Calendar tools");
+                assertTrue(content.contains("### Sheets"), "Should cover Sheets tools");
+                assertTrue(content.contains("### Docs"), "Should cover Docs tools");
+                assertTrue(content.contains("### Gmail"), "Should cover Gmail tools");
+                assertTrue(content.contains("### Chat"), "Should cover Chat tools");
+                assertTrue(content.contains("### Admin"), "Should cover Admin tools");
             }
         }
     }

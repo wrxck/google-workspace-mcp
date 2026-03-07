@@ -329,6 +329,38 @@ class SheetsToolsTest {
         }
     }
 
+    // ── Type validation ─────────────────────────────────────────────
+
+    @Nested
+    class TypeValidation {
+
+        @Test
+        void requireStringRejectsNonStringTypes() {
+            // Integer should not be accepted as a string parameter
+            CallToolResult result = callTool("sheets_values_get", Map.of(
+                    "spreadsheetId", 12345,
+                    "range", "A1"));
+            assertTrue(isError(result), "Integer should be rejected as spreadsheetId");
+        }
+
+        @Test
+        void requireStringRejectsBooleanTypes() {
+            CallToolResult result = callTool("sheets_create", Map.of(
+                    "title", true));
+            assertTrue(isError(result), "Boolean should be rejected as title");
+        }
+
+        @Test
+        void valuesParameterRejectsNull() {
+            CallToolResult result = callTool("sheets_values_update", Map.of(
+                    "spreadsheetId", "id1",
+                    "range", "A1"));
+            assertTrue(isError(result));
+            String text = ((TextContent) result.content().get(0)).text();
+            assertTrue(text.contains("values"), "Error should mention values");
+        }
+    }
+
     // ── Test helpers ────────────────────────────────────────────────
 
     private CallToolResult callTool(String toolName, Map<String, Object> args) {

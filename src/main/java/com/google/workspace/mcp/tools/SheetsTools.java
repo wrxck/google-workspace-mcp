@@ -195,10 +195,10 @@ public final class SheetsTools {
 
     private static String requireString(Map<String, Object> args, String key) {
         Object value = args.get(key);
-        if (value == null || value.toString().isBlank()) {
-            throw new IllegalArgumentException("Missing required parameter: " + key);
+        if (value instanceof String s && !s.isBlank()) {
+            return s;
         }
-        return value.toString();
+        throw new IllegalArgumentException("Missing required parameter: " + key);
     }
 
     private static int parsePageSize(Object raw) {

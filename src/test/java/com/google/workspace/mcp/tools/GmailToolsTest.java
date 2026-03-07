@@ -691,6 +691,43 @@ class GmailToolsTest {
             assertTrue(textContent(result, 0).contains("gmail_drafts_create failed"));
             assertTrue(textContent(result, 0).contains("quota exceeded"));
         }
+
+        @Test
+        void sanitizesSubjectWithCrLf() {
+            StubGwsClient stub = new StubGwsClient();
+            GmailTools gmail = new GmailTools(stub);
+            SyncToolSpecification spec = findTool(gmail, "gmail_drafts_create");
+
+            call(spec, Map.of("to", "a@b.com", "subject", "Test\r\nBcc: attacker@evil.com", "body", "B"));
+
+            String jsonBody = stub.lastArgs.get(stub.lastArgs.indexOf("--json") + 1);
+            String raw = extractRawFromJson(jsonBody);
+            byte[] decoded = Base64.getUrlDecoder().decode(raw);
+            String rfc2822 = new String(decoded, StandardCharsets.UTF_8);
+
+            // Subject should be sanitized - no injected Bcc header
+            assertFalse(rfc2822.contains("\r\nBcc:"),
+                    "CRLF injection in subject should be stripped");
+            assertTrue(rfc2822.contains("Subject: TestBcc: attacker@evil.com"),
+                    "Stripped subject should be inline, got: " + rfc2822);
+        }
+
+        @Test
+        void sanitizesToHeaderWithCrLf() {
+            StubGwsClient stub = new StubGwsClient();
+            GmailTools gmail = new GmailTools(stub);
+            SyncToolSpecification spec = findTool(gmail, "gmail_drafts_create");
+
+            call(spec, Map.of("to", "a@b.com\r\nBcc: attacker@evil.com", "subject", "S", "body", "B"));
+
+            String jsonBody = stub.lastArgs.get(stub.lastArgs.indexOf("--json") + 1);
+            String raw = extractRawFromJson(jsonBody);
+            byte[] decoded = Base64.getUrlDecoder().decode(raw);
+            String rfc2822 = new String(decoded, StandardCharsets.UTF_8);
+
+            assertFalse(rfc2822.contains("\r\nBcc:"),
+                    "CRLF injection in To header should be stripped");
+        }
     }
 
     // ── Helper method tests ─────────────────────────────────────
@@ -764,6 +801,48 @@ class GmailToolsTest {
         @Test
         void parsePageSize_clampsTo100ForLargeValue() {
             assertEquals(100, GmailTools.parsePageSize(200));
+        }
+    }
+
+    // ── sanitizeHeader ─────────────────────────────────────────
+
+    @Nested
+    class SanitizeHeaderTests {
+
+        @Test
+        void stripsCarriageReturn() {
+            assertEquals("TestValue", GmailTools.sanitizeHeader("Test\rValue"));
+        }
+
+        @Test
+        void stripsLineFeed() {
+            assertEquals("TestValue", GmailTools.sanitizeHeader("Test\nValue"));
+        }
+
+        @Test
+        void stripsCrLfSequence() {
+            assertEquals("TestValue", GmailTools.sanitizeHeader("Test\r\nValue"));
+        }
+
+        @Test
+        void preventsHeaderInjection() {
+            String malicious = "Test\r\nBcc: attacker@evil.com";
+            String sanitized = GmailTools.sanitizeHeader(malicious);
+            assertFalse(sanitized.contains("\r"), "Should not contain CR");
+            assertFalse(sanitized.contains("\n"), "Should not contain LF");
+            // After stripping, the injected header becomes inline text: "TestBcc: attacker@evil.com"
+            // This is safe because without CRLF it can't be parsed as a separate header
+            assertEquals("TestBcc: attacker@evil.com", sanitized);
+        }
+
+        @Test
+        void leavesCleanHeaderUnchanged() {
+            assertEquals("Normal Subject", GmailTools.sanitizeHeader("Normal Subject"));
+        }
+
+        @Test
+        void handlesEmptyString() {
+            assertEquals("", GmailTools.sanitizeHeader(""));
         }
     }
 

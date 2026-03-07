@@ -265,6 +265,28 @@ class DocsToolsTest {
         }
     }
 
+    // ── Type validation ─────────────────────────────────────────
+
+    @Nested
+    class TypeValidation {
+
+        @Test
+        void requireStringRejectsInteger() {
+            CallToolResult result = callTool("docs_get", Map.of("documentId", 12345));
+            assertTrue(result.isError(), "Integer should be rejected as documentId");
+            TextContent content = (TextContent) result.content().get(0);
+            assertTrue(content.text().contains("documentId"));
+        }
+
+        @Test
+        void requireStringRejectsBoolean() {
+            CallToolResult result = callTool("docs_create", Map.of("title", false));
+            assertTrue(result.isError(), "Boolean should be rejected as title");
+            TextContent content = (TextContent) result.content().get(0);
+            assertTrue(content.text().contains("title"));
+        }
+    }
+
     // ── Helper ──────────────────────────────────────────────────
 
     private CallToolResult callTool(String toolName, Map<String, Object> args) {
