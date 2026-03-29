@@ -149,8 +149,10 @@ class GoogleWorkspaceMcpServerTest {
         }
 
         @Test
-        void serverVersionIs100() {
-            assertEquals("1.0.0", GoogleWorkspaceMcpServer.SERVER_VERSION);
+        void serverVersionIsResolved() {
+            // "dev" when running tests without packaged JAR, version string from manifest otherwise
+            assertNotNull(GoogleWorkspaceMcpServer.SERVER_VERSION);
+            assertFalse(GoogleWorkspaceMcpServer.SERVER_VERSION.isBlank());
         }
     }
 }
