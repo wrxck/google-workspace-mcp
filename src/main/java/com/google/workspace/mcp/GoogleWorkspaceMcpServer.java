@@ -18,7 +18,12 @@ public class GoogleWorkspaceMcpServer {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleWorkspaceMcpServer.class);
     static final String SERVER_NAME = "google-workspace";
-    static final String SERVER_VERSION = "1.0.0";
+    static final String SERVER_VERSION = resolveVersion();
+
+    private static String resolveVersion() {
+        String v = GoogleWorkspaceMcpServer.class.getPackage().getImplementationVersion();
+        return v != null ? v : "dev";
+    }
 
     public static void main(String[] args) throws Exception {
         if (args.length > 0 && "--install".equals(args[0])) {
