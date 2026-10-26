@@ -43,10 +43,10 @@ public class GoogleWorkspaceMcpServer {
             return;
         }
 
-        startServer();
+        startServer(args);
     }
 
-    static void startServer() {
+    static void startServer(String[] args) throws Exception {
         GwsClient client = new GwsClient();
 
         if (!client.isAvailable()) {
@@ -58,6 +58,22 @@ public class GoogleWorkspaceMcpServer {
 
         List<SyncToolSpecification> allTools = collectTools(client);
         log.info("Registered {} tools", allTools.size());
+
+        TransportConfig transportConfig = TransportConfig.fromArgs(args);
+        if (transportConfig.http()) {
+            HttpTransportServer http = HttpTransportServer.start(SERVER_NAME, SERVER_VERSION, allTools,
+                    transportConfig.bindHost(), transportConfig.port(), transportConfig.readToken());
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                log.info("Shutting down...");
+                try {
+                    http.stop();
+                } catch (Exception e) {
+                    log.warn("Error during shutdown: {}", e.getMessage());
+                }
+            }));
+            http.join();
+            return;
+        }
 
         var transport = new StdioServerTransportProvider(
                 new JacksonMcpJsonMapper(new ObjectMapper()));
